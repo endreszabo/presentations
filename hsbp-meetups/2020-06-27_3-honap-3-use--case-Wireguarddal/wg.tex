@@ -1,0 +1,239 @@
+\documentclass[aspectratio=169]{beamer}
+\beamertemplatenavigationsymbolsempty
+\usepackage{tcolorbox}
+\usepackage{t1enc}
+\usepackage[magyar]{babel}
+\usepackage[utf8]{inputenc}
+
+%\setbeamertemplate{navigation symbols}{}%remove navigation symbols
+
+\usepackage{fontspec}
+%\setmainfont[Mapping=tex-text]{Bebas Neue}
+\setmainfont[Mapping=tex-text]{Asap}
+\let\sfdefault\rmdefault
+
+\AtBeginSection[]
+
+%\usetheme{Warsaw}
+\usecolortheme{frigatebird}
+%\usetheme{Szeged}
+
+\tcbset{%
+    noparskip,
+    colback=noir!90, %background color of the box
+    colframe=gray!40, %color of frame and title background
+    coltext=blanc, %color of body text
+    coltitle=black, %color of title text 
+    fonttitle=\bfseries,
+    alerted/.style={coltitle=red, 
+                     colframe=gray!40},
+    example/.style={coltitle=black, 
+					 colframe=myOrange!100,},
+%                     colback=green!5},
+    }
+
+\newfontfamily\bebasfont{Bebas Neue}
+
+%Information to be included in the title page:
+%\title{\bebasfont 3 hónap:\ 3 use-case WireGuard-dal}
+\title{3\,hónap: 3\,use\,case WireGuard-dal}
+\author{Szabó Endre}
+\institute[HSBP Meetup]{Hackerspace Budapest Online Meetup}
+\date[\today]{\today}
+
+\begin{document}
+
+{
+%\setbeamercolor{background canvas}{bg=violet}
+\frame{\titlepage}
+}
+
+\section{Áttekintés}
+\subsection{terjedelem}
+
+\begin{frame}{Az előadás terjedelme}
+
+	Mi nem célja az előadásnak?
+		\pause
+		\begin{itemize}
+			\item Ez nem WireGuard endorsement. YMMV.
+		\end{itemize}
+
+		\pause
+
+	Mi a célja az előadásnak?
+
+		\pause
+
+		\begin{itemize}
+			\item Évek alatt kialakult best-practice-ok kivonatos bemutatása.
+			\item Otthoni VPN környezetem bemutatása.
+		\end{itemize}
+
+	%	\includegraphics[scale=0.2]{scb-magyarazos.png}
+
+%\bebasfont teszt 123
+
+\end{frame}
+
+\subsection{halozat}
+
+\begin{frame}
+	\frametitle{IP-címzés általánosságban}
+
+	\textbf {Site:} minden, fizikailag elkülönülő telephelyen lévő eszközök összessége. Ez lehet:
+	\pause
+	\begin{itemize}
+		\item valódi helyi hálózat (lakás),
+	\pause
+		\item VPS,
+	\pause
+		\item vagy egy-egy kiemeltebb road-warrior is.
+	\end{itemize}
+	\pause
+
+	Általános jellemzők:
+	\pause
+
+	\begin{itemize}
+		\item	AMPRNet\texttrademark\,\,44.128.0.0/16 teszt célú hálózatát lenyúltam,
+	\pause
+\item minden site-nak van egy ``$x<64$'' azonosítószáma (\texttt {site\_id}),
+	\pause
+\item	(ebből kalkulálódik egy /22 méretű IP subnet minden site-nak),
+	\pause
+\item és egy ENSZ LOCODE alapú azonosító stringje (\texttt {site\_code}),
+	\pause
+	\item	(ebből származtatódnak a hostnevek prefixei).
+	\end{itemize}
+
+\end{frame}
+
+\section{1. Usecase}
+\begin{frame}[plain]
+	\fontsize{50}{60} \bebasfont {
+		1. use case:\,\,\,\\
+		Site to site VPN\,\,\,
+		}
+\end{frame}
+\subsection{Site to Site VPN}
+
+\begin{frame}{Site to Site VPN jellemzők}
+	Jellemzők:
+	\begin{itemize}
+		\item Full mesh VPN
+			\pause
+		\item Automatikus deploy Ansible-lel
+			\pause
+		\item Teljes 0.0.0.0/0 hirdetve minden végponton
+			\pause
+		\item SNAT Internet felé minden, tunnelből érkező forgalomra
+	\end{itemize}
+			\pause
+	Hátrány:
+	\begin{itemize}
+			\pause
+		\item WireGuard crypto-routing és DynDNS miatt minden site felé egy dedikált tunnel interface jelenléte szükséges.
+	\end{itemize}
+\end{frame}
+
+\begin{frame}{Site to Site VPN route optimalizálás}
+	\pause
+	Nemzetközi forgalom optimalizálásra is lehetőség van.
+
+	A probléma:
+	\begin{itemize}
+		\item Bécsi UPC és DIGI között a forgalom: Bécs - Frankfurt - Bukarest - Budapest
+			\pause
+		\item 38 msec RTT.
+			\pause
+	\end{itemize}
+	A megoldás:
+	\begin{itemize}
+		\item Forgalom elirányítása kevesebb hop-on keresztül, BGP nélkül.
+			\pause
+		\item Egyik budapesti VPS-en terminálás nélküli, same-interface tükrözés.
+			\pause
+		\item Natívan, kernelspace-ben, netfilter DNAT+SNAT kombóval.
+			\pause
+		\item A forgalom útja így: Bécs - Budapest (- Budapest)
+			\pause
+		\item Eredmény: 18 msec RTT.
+	\end{itemize}
+	Hátrány:
+	\begin{itemize}
+			\pause
+		\item Dinamikus című végpontok között initiatort kell kinevezni.
+			\pause
+		\item SPoF bevezetése. :)
+	\end{itemize}
+\end{frame}
+
+\section{2. Usecase}
+\begin{frame}[plain]
+	\fontsize{50}{60} \bebasfont {
+		2. use case:\,\,\,\\
+		Road warrior VPN\,\,\,
+		}
+\end{frame}
+\subsection{Road warrior VPN}
+
+\begin{frame}{Road warrior VPN jellemzők}
+	Jellemzők:
+	\begin{itemize}
+		\item Ansible-lel segített
+			\pause
+		\item Teljes 0.0.0.0/0 hirdetve minden koncentrátoron
+			\pause
+		\item Jobb kliensek párhuzamosan több tunnelt is tudnak használni
+			\pause
+		\item Kliens oldalon network namespacing kihasználása
+			\pause
+		\item Szerver oldalon proxy ARP lehetősége
+			\pause
+	\end{itemize}
+			\pause
+	Namespace használat macerái:
+	\begin{itemize}
+		\item Nincs network manager ami támogatná ezt a setup-ot.
+			\pause
+		\item Még a \texttt {wg-quick} sem támogatja, de patch-et küldtem.
+			\pause
+		\item Default namespace helyi hálózatra macerásan tud szolgáltatni.
+	\end{itemize}
+\end{frame}
+
+\section{3. Usecase}
+\begin{frame}[plain]
+	\fontsize{50}{60} \bebasfont {
+		3. use case:\,\,\,\\
+		Magyar fix IP-cím\,\,\,
+		}
+\end{frame}
+\subsection{Magyar IP-cím}
+
+\begin{frame}{Magyar IP-cím}
+	Szükség volt egy magyar IP-cím Bécsbe routolására.
+
+	Helyi hálózati jellemzők:
+	\begin{itemize}
+		\item Két WiFi SSID itthon:
+			\pause
+		\item Egy natív, bécsi UPC kijáratú
+			\pause
+		\item Egy tunnelezett, budapesti IP-címmel rendelkező kijáratú
+			\pause
+		\item Snowflake network bridge
+			\pause
+		\item PVLAN és WiFi client isolation alapú \texttt{fwmark}
+			\pause
+		\item RPDB rule \texttt{fwmark} alapján
+	\end{itemize}
+	\pause
+	Hátrány:
+	\begin{itemize}
+		\item Nincs.
+	\end{itemize}
+\end{frame}
+
+\end{document}
